@@ -12,6 +12,7 @@ function Products() {
   const [products, setProducts] = useState([])
   const [farmers, setFarmers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [quantities, setQuantities] = useState({})
 
   const categories = ['Todos', 'Verduras', 'Frutas', 'Cereales', 'Tubérculos']
 
@@ -47,12 +48,31 @@ function Products() {
     ? products 
     : products.filter(p => p.category === selectedCategory)
 
-  const addToCart = (product) => {
-    const minQuantity = product.minQuantity || 10 // Por defecto 10 unidades
-    const newCart = [...cart, { ...product, quantity: minQuantity }]
+  const addToCart = (product, quantity) => {
+    const minQuantity = product.minQuantity || 10
+    const finalQuantity = quantity || minQuantity
+    
+    if (finalQuantity < minQuantity) {
+      alert(`La cantidad mínima para ${product.name} es ${minQuantity} ${product.unit}`)
+      return
+    }
+    
+    // Verificar si el producto ya está en el carrito
+    const existingIndex = cart.findIndex(item => item.id === product.id)
+    
+    let newCart
+    if (existingIndex >= 0) {
+      // Actualizar cantidad si ya existe
+      newCart = [...cart]
+      newCart[existingIndex].quantity = finalQuantity
+    } else {
+      // Agregar nuevo producto
+      newCart = [...cart, { ...product, quantity: finalQuantity }]
+    }
+    
     setCart(newCart)
     localStorage.setItem('agrolink_cart', JSON.stringify(newCart))
-    alert(`${product.name} agregado al carrito (mínimo ${minQuantity} ${product.unit})`)
+    alert(`${product.name} agregado al carrito (${finalQuantity} ${product.unit})`)
   }
 
   const removeFromCart = (index) => {
@@ -243,17 +263,31 @@ function Products() {
                           </div>
 
                           {/* Price & Add to Cart */}
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <span className="text-2xl font-bold text-green-600">Bs. {product.price}</span>
-                              <span className="text-sm text-gray-600">/{product.unit}</span>
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <span className="text-2xl font-bold text-green-600">Bs. {product.price}</span>
+                                <span className="text-sm text-gray-600">/{product.unit}</span>
+                              </div>
                             </div>
-                            <button
-                              onClick={() => addToCart(product)}
-                              className="bg-green-600 text-white p-3 rounded-lg hover:bg-green-700 transition"
-                            >
-                              <ShoppingCart className="h-5 w-5" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min={product.minQuantity || 10}
+                                defaultValue={product.minQuantity || 10}
+                                onChange={(e) => setQuantities({ ...quantities, [product.id]: parseInt(e.target.value) })}
+                                className="w-20 px-3 py-2 border rounded-lg text-center"
+                                placeholder="Cant."
+                              />
+                              <span className="text-sm text-gray-600">{product.unit}</span>
+                              <button
+                                onClick={() => addToCart(product, quantities[product.id])}
+                                className="flex-1 bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 transition flex items-center justify-center"
+                              >
+                                <ShoppingCart className="h-5 w-5 mr-1" />
+                                Agregar
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>

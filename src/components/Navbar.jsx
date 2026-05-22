@@ -32,10 +32,16 @@ function Navbar() {
                   Mis Pedidos
                 </Link>
               )}
+              {user && (
+                <Link to="/perfil" className="hover:bg-primary-700 px-3 py-2 rounded-md text-sm font-medium transition flex items-center">
+                  <User className="h-4 w-4 mr-1" />
+                  Mi Perfil
+                </Link>
+              )}
               {user && user.userType === 'farmer' && (
                 <Link to="/agricultor" className="hover:bg-primary-700 px-3 py-2 rounded-md text-sm font-medium transition flex items-center">
-                  <User className="h-4 w-4 mr-1" />
-                  Agricultor
+                  <LayoutDashboard className="h-4 w-4 mr-1" />
+                  Panel Agricultor
                 </Link>
               )}
               {user && user.email.includes('admin') && (

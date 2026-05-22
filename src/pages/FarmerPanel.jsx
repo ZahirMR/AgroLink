@@ -162,7 +162,7 @@ function FarmerPanel() {
       {/* Header */}
       <div className="bg-gradient-to-r from-green-600 to-emerald-700 text-white py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center mb-4">
             <div>
               <h1 className="text-3xl font-bold">{farmerProfile?.businessName || 'Mi Negocio'}</h1>
               <p className="text-green-100">{farmerProfile?.name}</p>
@@ -188,6 +188,48 @@ function FarmerPanel() {
                 <LogOut className="h-5 w-5 mr-2" />
                 Salir
               </button>
+            </div>
+          </div>
+
+          {/* Statistics */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+            <div className="bg-white/10 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-green-100 text-sm">Productos Activos</p>
+                  <p className="text-2xl font-bold">{farmerProducts.length}</p>
+                </div>
+                <Package className="h-8 w-8 text-white/50" />
+              </div>
+            </div>
+            <div className="bg-white/10 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-green-100 text-sm">Pedidos Recibidos</p>
+                  <p className="text-2xl font-bold">{farmerOrders.length}</p>
+                </div>
+                <CheckCircle className="h-8 w-8 text-white/50" />
+              </div>
+            </div>
+            <div className="bg-white/10 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-green-100 text-sm">Ventas Totales</p>
+                  <p className="text-2xl font-bold">
+                    Bs. {farmerOrders.reduce((sum, order) => sum + (order.total || 0), 0).toFixed(0)}
+                  </p>
+                </div>
+                <Truck className="h-8 w-8 text-white/50" />
+              </div>
+            </div>
+            <div className="bg-white/10 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-green-100 text-sm">Pedidos Pendientes</p>
+                  <p className="text-2xl font-bold">{farmerOrders.filter(o => o.status === 'pending').length}</p>
+                </div>
+                <Clock className="h-8 w-8 text-white/50" />
+              </div>
             </div>
           </div>
         </div>
