@@ -20,7 +20,7 @@ export function AuthProvider({ children }) {
         console.warn('Firebase auth timeout - forcing render')
         setLoading(false)
       }
-    }, 5000)
+    }, 3000)
 
     const unsubscribe = onAuthStateChanged(
       auth,
@@ -87,7 +87,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   )
 }
