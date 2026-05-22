@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getFarmers, addOrder } from '../services/firestoreService'
 import { useAuth } from '../context/AuthContext'
-import { ShoppingCart, MapPin, Star, Truck, Banknote, QrCode, CreditCard, ArrowLeft, CheckCircle, Database } from 'lucide-react'
+import { ShoppingCart, MapPin, Star, Truck, Banknote, QrCode, CreditCard, ArrowLeft, CheckCircle, Database, Package, AlertCircle } from 'lucide-react'
 
 function Checkout() {
   const navigate = useNavigate()
@@ -66,7 +66,8 @@ function Checkout() {
   const calculateTotal = () => {
     let total = 0
     cart.forEach(product => {
-      total += product.price
+      const quantity = product.quantity || 1
+      total += product.price * quantity
     })
     // Agregar costo de delivery si es delivery
     if (selectedDeliveryMethod === 'delivery') {
@@ -114,10 +115,10 @@ function Checkout() {
             productId: p.id,
             name: p.name,
             price: p.price,
-            quantity: 1,
+            quantity: p.quantity || 1,
             unit: p.unit
           })),
-          total: farmerProducts.reduce((sum, p) => sum + p.price, 0) + 
+          total: farmerProducts.reduce((sum, p) => sum + (p.price * (p.quantity || 1)), 0) + 
                  (selectedDeliveryMethod === 'delivery' ? (farmer?.deliveryFee || 0) : 0),
           paymentMethod: selectedPaymentMethod,
           deliveryMethod: selectedDeliveryMethod,
@@ -205,8 +206,15 @@ function Checkout() {
             <ArrowLeft className="h-5 w-5 mr-2" />
             Volver a Productos
           </button>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Finalizar Pedido</h1>
-          <p className="text-gray-600">Revisa tu pedido antes de confirmar</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Finalizar Pedido - Ventas por Mayor</h1>
+          <p className="text-gray-600 mb-4">Revisa tu pedido antes de confirmar</p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start">
+            <Package className="h-5 w-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-blue-900 mb-1">Pedido por Mayor (B2B)</p>
+              <p className="text-sm text-blue-700">Tu pedido incluye cantidades mínimas por producto para asegurar costos de entrega eficientes.</p>
+            </div>
+          </div>
         </div>
 
         {loading ? (
@@ -220,7 +228,7 @@ function Checkout() {
               {Object.keys(groupedByFarmer).map(farmerId => {
                 const farmerProducts = groupedByFarmer[farmerId]
                 const farmer = farmers.find(f => f.id === parseInt(farmerId))
-                const farmerTotal = farmerProducts.reduce((sum, p) => sum + p.price, 0)
+                const farmerTotal = farmerProducts.reduce((sum, p) => sum + (p.price * (p.quantity || 1)), 0)
                 
                 return (
                   <div key={farmerId} className="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -258,11 +266,17 @@ function Checkout() {
                               <div>
                                 <p className="font-semibold text-gray-900">{product.name}</p>
                                 <p className="text-sm text-gray-600">{product.description || product.category}</p>
+                                <div className="flex items-center mt-1">
+                                  <Package className="h-3 w-3 text-blue-600 mr-1" />
+                                  <span className="text-xs text-blue-600 font-semibold">
+                                    x{product.quantity || 1} {product.unit}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className="font-bold text-green-600">Bs. {product.price}</p>
-                              <p className="text-sm text-gray-600">/{product.unit}</p>
+                              <p className="font-bold text-green-600">Bs. {product.price * (product.quantity || 1)}</p>
+                              <p className="text-sm text-gray-600">Bs. {product.price}/{product.unit}</p>
                             </div>
                           </div>
                         ))}
