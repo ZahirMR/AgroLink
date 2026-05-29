@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate, Link } from 'react-router-dom'
-import { Leaf, Lock, Mail } from 'lucide-react'
+import { Leaf, Lock, Mail, Shield } from 'lucide-react'
+import { updateUserType, createAdminUser } from '../services/firestoreService'
 
 function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [isAdmin, setIsAdmin] = useState(false)
-  const { login } = useAuth()
+  const { login, user } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
@@ -18,13 +18,26 @@ function Login() {
     try {
       await login(email, password)
       
-      if (isAdmin) {
-        navigate('/admin')
+      if (user && user.userType === 'admin') {
+        window.location.href = '/admin'
+      } else if (user && user.userType === 'farmer') {
+        window.location.href = '/agricultor'
       } else {
         navigate('/')
       }
     } catch (error) {
       setError('Credenciales inválidas. Por favor intenta nuevamente.')
+    }
+  }
+
+  const handleSetupAdmin = async () => {
+    if (window.confirm('¿Crear usuario admin@agrolink.dev / 123123 en la base de datos?')) {
+      try {
+        await createAdminUser('admin@agrolink.dev', '123123')
+        alert('Usuario admin creado exitosamente en la base de datos. Ahora puedes iniciar sesión en /admin-login')
+      } catch (error) {
+        alert('Error al crear usuario admin: ' + error.message)
+      }
     }
   }
 
@@ -37,12 +50,10 @@ function Login() {
             <span className="text-3xl font-bold text-primary-600">AgroLink</span>
           </Link>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            {isAdmin ? 'Acceso Administrativo' : 'Iniciar Sesión'}
+            Iniciar Sesión
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            {isAdmin 
-              ? 'Ingresa tus credenciales de administrador' 
-              : 'Ingresa para acceder a tu cuenta de cliente'}
+            Ingresa para acceder a tu cuenta
           </p>
         </div>
 
@@ -95,19 +106,6 @@ function Login() {
                 />
               </div>
             </div>
-
-            <div className="flex items-center">
-              <input
-                id="isAdmin"
-                type="checkbox"
-                checked={isAdmin}
-                onChange={(e) => setIsAdmin(e.target.checked)}
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-              />
-              <label htmlFor="isAdmin" className="ml-2 block text-sm text-gray-700">
-                Soy administrador
-              </label>
-            </div>
           </div>
 
           <div>
@@ -115,7 +113,7 @@ function Login() {
               type="submit"
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition"
             >
-              {isAdmin ? 'Ingresar como Administrador' : 'Iniciar Sesión'}
+              Iniciar Sesión
             </button>
           </div>
 
@@ -135,13 +133,24 @@ function Login() {
           </div>
         </form>
 
-        {/* Información de demo */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold text-blue-900 mb-2">Credenciales de Demo:</h3>
-          <div className="text-sm text-blue-800 space-y-1">
-            <p><strong>Admin:</strong> admin@agrolink.com / admin123</p>
-            <p><strong>Cliente:</strong> cliente@agrolink.com / cliente123</p>
-          </div>
+        {/* Enlace a login de administrador */}
+        <div className="mt-8 bg-slate-50 border border-slate-200 rounded-lg p-4 text-center">
+          <p className="text-sm text-slate-600 mb-2">¿Eres administrador?</p>
+          <Link to="/admin-login" className="text-sm font-medium text-slate-900 hover:text-slate-700">
+            Acceder al panel de administración
+          </Link>
+        </div>
+
+        {/* Botón para configurar admin en Firestore */}
+        <div className="mt-4 bg-purple-50 border border-purple-200 rounded-lg p-4">
+          <button
+            onClick={handleSetupAdmin}
+            className="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition flex items-center justify-center"
+          >
+            <Shield className="h-5 w-5 mr-2" />
+            Configurar Usuario Admin en Firestore
+          </button>
+          <p className="text-xs text-purple-700 mt-2 text-center">Solo para desarrollo - configura admin@agrolink.dev como admin</p>
         </div>
       </div>
     </div>

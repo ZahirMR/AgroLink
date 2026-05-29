@@ -13,7 +13,7 @@ function Register() {
     password: '',
     phone: '',
     address: '',
-    userType: 'client' // 'client' o 'farmer'
+    userType: 'client'
   })
   const [error, setError] = useState('')
   const navigate = useNavigate()
@@ -22,7 +22,6 @@ function Register() {
     e.preventDefault()
     setError('')
 
-    // Validar contraseña mínima
     if (formData.password.length < 6) {
       setError('La contraseña debe tener al menos 6 caracteres.')
       return
@@ -31,7 +30,6 @@ function Register() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password)
       
-      // Guardar información adicional en Firestore
       await setDoc(doc(db, 'users', userCredential.user.uid), {
         name: formData.name,
         email: formData.email,
@@ -45,7 +43,6 @@ function Register() {
     } catch (error) {
       console.error('Error de registro:', error)
       
-      // Mostrar mensaje de error específico
       if (error.code === 'auth/email-already-in-use') {
         setError('Este correo electrónico ya está registrado.')
       } else if (error.code === 'auth/weak-password') {

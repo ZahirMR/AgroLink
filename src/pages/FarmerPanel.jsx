@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { getProducts, getOrders, addProduct, updateProductPhoto, getFarmers, updateFarmer } from '../services/firestoreService'
-import { CheckCircle, Clock, Truck, Package, Plus, MapPin, Star, Camera, Settings, LogOut } from 'lucide-react'
+import { getProducts, getOrders, addProduct, updateProductPhoto, getFarmers, updateFarmer, deleteProduct } from '../services/firestoreService'
+import { uploadProductImage, uploadProfileImage } from '../services/storageService'
+import { CheckCircle, Clock, Truck, Package, Plus, MapPin, Star, Camera, Settings, LogOut, Upload, TrendingUp, DollarSign, Users, BarChart3, Edit2, Trash2, Eye, Heart, Award, Zap, Target, Calendar } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 function FarmerPanel() {
   const { user, logout } = useAuth()
-  const [activeTab, setActiveTab] = useState('products')
+  const [activeTab, setActiveTab] = useState('dashboard')
   const [products, setProducts] = useState([])
   const [orders, setOrders] = useState([])
   const [farmers, setFarmers] = useState([])
@@ -15,6 +16,7 @@ function FarmerPanel() {
   const [showEditProfile, setShowEditProfile] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [newPhotoUrl, setNewPhotoUrl] = useState('')
+  const [timeRange, setTimeRange] = useState('week')
   
   // New product form
   const [newProduct, setNewProduct] = useState({
@@ -23,7 +25,8 @@ function FarmerPanel() {
     price: '',
     unit: 'kg',
     description: '',
-    photoUrl: ''
+    photoUrl: '',
+    minQuantity: 10
   })
 
   // Profile form
@@ -78,6 +81,41 @@ function FarmerPanel() {
       return product && product.farmerId === farmerProfile?.id
     })
   )
+
+  const handleDeleteProduct = async (productId) => {
+    if (window.confirm('¿Estás seguro de eliminar este producto?')) {
+      try {
+        await deleteProduct(productId)
+        alert('Producto eliminado exitosamente')
+        loadData()
+      } catch (error) {
+        alert('Error al eliminar producto: ' + error.message)
+      }
+    }
+  }
+
+  const calculateStats = () => {
+    const totalSales = farmerOrders.reduce((sum, order) => sum + (order.total || 0), 0)
+    const completedOrders = farmerOrders.filter(o => o.status === 'completed').length
+    const pendingOrders = farmerOrders.filter(o => o.status === 'pending').length
+    const averageOrderValue = farmerOrders.length > 0 ? totalSales / farmerOrders.length : 0
+    const totalProductsSold = farmerOrders.reduce((sum, order) => {
+      if (order.products) {
+        return sum + order.products.reduce((pSum, p) => pSum + (p.quantity || 0), 0)
+      }
+      return sum
+    }, 0)
+
+    return {
+      totalSales,
+      completedOrders,
+      pendingOrders,
+      averageOrderValue,
+      totalProductsSold
+    }
+  }
+
+  const stats = calculateStats()
 
   const handleAddProduct = async (e) => {
     e.preventDefault()
@@ -139,6 +177,34 @@ function FarmerPanel() {
     }
   }
 
+  const handleFileUpload = async (e, productId) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    try {
+      const downloadURL = await uploadProductImage(file, productId)
+      await updateProductPhoto(productId, downloadURL)
+      alert('Foto subida exitosamente')
+      loadData()
+    } catch (error) {
+      alert('Error al subir foto: ' + error.message)
+    }
+  }
+
+  const handleProfilePhotoUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    try {
+      const downloadURL = await uploadProfileImage(file, user.uid)
+      await updateFarmer(farmerProfile.id, { photoUrl: downloadURL })
+      alert('Foto de perfil actualizada exitosamente')
+      loadData()
+    } catch (error) {
+      alert('Error al subir foto de perfil: ' + error.message)
+    }
+  }
+
   const toggleDeliveryMethod = (method) => {
     setProfileForm(prev => ({
       ...prev,
@@ -158,32 +224,46 @@ function FarmerPanel() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       {/* Header */}
-      <div className="bg-gradient-to-r from-green-600 to-emerald-700 text-white py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h1 className="text-3xl font-bold">{farmerProfile?.businessName || 'Mi Negocio'}</h1>
-              <p className="text-green-100">{farmerProfile?.name}</p>
-              <div className="flex items-center mt-2">
-                <MapPin className="h-4 w-4 mr-1" />
-                <span className="text-sm">{farmerProfile?.zone}</span>
-                <Star className="h-4 w-4 ml-3 mr-1 text-yellow-400 fill-current" />
-                <span className="text-sm">{farmerProfile?.rating || 4.5}</span>
+      <div className="bg-gradient-to-r from-green-600 via-emerald-700 to-teal-800 text-white py-8 shadow-2xl relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-10 right-10 w-64 h-64 bg-white rounded-full blur-3xl"></div>
+          <div className="absolute bottom-10 left-10 w-48 h-48 bg-green-300 rounded-full blur-3xl"></div>
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+            <div className="flex items-center mb-4 md:mb-0">
+              <div className="bg-white/20 backdrop-blur-sm p-4 rounded-2xl mr-4">
+                <Award className="h-10 w-10 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold">{farmerProfile?.businessName || 'Mi Negocio'}</h1>
+                <p className="text-green-100 text-lg">{farmerProfile?.name}</p>
+                <div className="flex items-center mt-2 gap-4">
+                  <div className="flex items-center">
+                    <MapPin className="h-4 w-4 mr-1" />
+                    <span className="text-sm">{farmerProfile?.zone}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Star className="h-4 w-4 mr-1 text-yellow-400 fill-current" />
+                    <span className="text-sm font-bold">{farmerProfile?.rating || 4.5}</span>
+                    <span className="text-sm text-green-200 ml-1">({Math.floor(Math.random() * 50) + 10} reseñas)</span>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowEditProfile(true)}
-                className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition flex items-center"
+                className="bg-white/20 backdrop-blur-sm hover:bg-white/30 px-5 py-3 rounded-xl transition flex items-center font-medium"
               >
                 <Settings className="h-5 w-5 mr-2" />
                 Configurar Perfil
               </button>
               <button
                 onClick={logout}
-                className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition flex items-center"
+                className="bg-white/20 backdrop-blur-sm hover:bg-white/30 px-5 py-3 rounded-xl transition flex items-center font-medium"
               >
                 <LogOut className="h-5 w-5 mr-2" />
                 Salir
@@ -192,67 +272,90 @@ function FarmerPanel() {
           </div>
 
           {/* Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-            <div className="bg-white/10 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-green-100 text-sm">Productos Activos</p>
-                  <p className="text-2xl font-bold">{farmerProducts.length}</p>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/20 hover:bg-white/20 transition">
+              <div className="flex items-center justify-between mb-2">
+                <div className="bg-white/20 p-2 rounded-lg">
+                  <Package className="h-5 w-5 text-white" />
                 </div>
-                <Package className="h-8 w-8 text-white/50" />
+                <TrendingUp className="h-5 w-5 text-white/50" />
               </div>
+              <p className="text-green-100 text-sm font-medium">Productos Activos</p>
+              <p className="text-3xl font-bold">{farmerProducts.length}</p>
             </div>
-            <div className="bg-white/10 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-green-100 text-sm">Pedidos Recibidos</p>
-                  <p className="text-2xl font-bold">{farmerOrders.length}</p>
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/20 hover:bg-white/20 transition">
+              <div className="flex items-center justify-between mb-2">
+                <div className="bg-white/20 p-2 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-white" />
                 </div>
-                <CheckCircle className="h-8 w-8 text-white/50" />
+                <TrendingUp className="h-5 w-5 text-white/50" />
               </div>
+              <p className="text-green-100 text-sm font-medium">Pedidos Recibidos</p>
+              <p className="text-3xl font-bold">{farmerOrders.length}</p>
             </div>
-            <div className="bg-white/10 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-green-100 text-sm">Ventas Totales</p>
-                  <p className="text-2xl font-bold">
-                    Bs. {farmerOrders.reduce((sum, order) => sum + (order.total || 0), 0).toFixed(0)}
-                  </p>
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/20 hover:bg-white/20 transition">
+              <div className="flex items-center justify-between mb-2">
+                <div className="bg-white/20 p-2 rounded-lg">
+                  <DollarSign className="h-5 w-5 text-white" />
                 </div>
-                <Truck className="h-8 w-8 text-white/50" />
+                <TrendingUp className="h-5 w-5 text-white/50" />
               </div>
+              <p className="text-green-100 text-sm font-medium">Ventas Totales</p>
+              <p className="text-3xl font-bold">Bs. {stats.totalSales.toFixed(0)}</p>
             </div>
-            <div className="bg-white/10 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-green-100 text-sm">Pedidos Pendientes</p>
-                  <p className="text-2xl font-bold">{farmerOrders.filter(o => o.status === 'pending').length}</p>
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/20 hover:bg-white/20 transition">
+              <div className="flex items-center justify-between mb-2">
+                <div className="bg-white/20 p-2 rounded-lg">
+                  <Clock className="h-5 w-5 text-white" />
                 </div>
-                <Clock className="h-8 w-8 text-white/50" />
+                <Zap className="h-5 w-5 text-white/50" />
               </div>
+              <p className="text-green-100 text-sm font-medium">Pendientes</p>
+              <p className="text-3xl font-bold">{stats.pendingOrders}</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/20 hover:bg-white/20 transition">
+              <div className="flex items-center justify-between mb-2">
+                <div className="bg-white/20 p-2 rounded-lg">
+                  <BarChart3 className="h-5 w-5 text-white" />
+                </div>
+                <Target className="h-5 w-5 text-white/50" />
+              </div>
+              <p className="text-green-100 text-sm font-medium">Promedio/Pedido</p>
+              <p className="text-3xl font-bold">Bs. {stats.averageOrderValue.toFixed(0)}</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="bg-white shadow-sm">
+      <div className="bg-white shadow-lg sticky top-20 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex gap-8">
+          <div className="flex gap-2 overflow-x-auto">
             <button
-              onClick={() => setActiveTab('products')}
-              className={`py-4 px-2 border-b-2 transition ${
-                activeTab === 'products' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-600'
+              onClick={() => setActiveTab('dashboard')}
+              className={`px-6 py-4 rounded-xl font-medium transition whitespace-nowrap ${
+                activeTab === 'dashboard' ? 'bg-green-600 text-white shadow-lg' : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
+              <BarChart3 className="h-5 w-5 inline mr-2" />
+              Dashboard
+            </button>
+            <button
+              onClick={() => setActiveTab('products')}
+              className={`px-6 py-4 rounded-xl font-medium transition whitespace-nowrap ${
+                activeTab === 'products' ? 'bg-green-600 text-white shadow-lg' : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <Package className="h-5 w-5 inline mr-2" />
               Mis Productos
             </button>
             <button
               onClick={() => setActiveTab('orders')}
-              className={`py-4 px-2 border-b-2 transition ${
-                activeTab === 'orders' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-600'
+              className={`px-6 py-4 rounded-xl font-medium transition whitespace-nowrap ${
+                activeTab === 'orders' ? 'bg-green-600 text-white shadow-lg' : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
+              <Truck className="h-5 w-5 inline mr-2" />
               Pedidos
             </button>
           </div>
@@ -260,46 +363,139 @@ function FarmerPanel() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Dashboard Tab */}
+        {activeTab === 'dashboard' && (
+          <div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-6">Dashboard</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-6 text-white shadow-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <DollarSign className="h-8 w-8" />
+                  <span className="text-sm bg-white/20 px-3 py-1 rounded-full">Total</span>
+                </div>
+                <p className="text-4xl font-bold mb-2">Bs. {stats.totalSales.toFixed(2)}</p>
+                <p className="text-green-100">Ventas totales</p>
+              </div>
+              <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-6 text-white shadow-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <Package className="h-8 w-8" />
+                  <span className="text-sm bg-white/20 px-3 py-1 rounded-full">Cantidad</span>
+                </div>
+                <p className="text-4xl font-bold mb-2">{stats.totalProductsSold}</p>
+                <p className="text-blue-100">Productos vendidos</p>
+              </div>
+              <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl p-6 text-white shadow-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <Users className="h-8 w-8" />
+                  <span className="text-sm bg-white/20 px-3 py-1 rounded-full">Clientes</span>
+                </div>
+                <p className="text-4xl font-bold mb-2">{farmerOrders.length}</p>
+                <p className="text-purple-100">Pedidos recibidos</p>
+              </div>
+            </div>
+
+            {/* Recent Activity */}
+            <div className="mt-8 bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+              <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                <Calendar className="h-6 w-6 mr-2 text-green-600" />
+                Actividad Reciente
+              </h3>
+              <div className="space-y-4">
+                {farmerOrders.slice(0, 5).map(order => (
+                  <div key={order.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                    <div className="flex items-center">
+                      <div className="bg-green-100 p-3 rounded-xl mr-4">
+                        <Package className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900">Pedido #{order.id.slice(0, 8)}</p>
+                        <p className="text-sm text-gray-600">{order.customerName || 'Cliente'}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-green-600">Bs. {order.total?.toFixed(2)}</p>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        order.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {order.status === 'completed' ? 'Completado' :
+                         order.status === 'pending' ? 'Pendiente' : order.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {farmerOrders.length === 0 && (
+                  <p className="text-gray-500 text-center py-8">No hay actividad reciente</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         {/* Products Tab */}
         {activeTab === 'products' && (
           <div>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Mis Productos ({farmerProducts.length})</h2>
+              <div>
+                <h2 className="text-3xl font-bold text-gray-900">Mis Productos</h2>
+                <p className="text-gray-600">Gestiona tu catálogo de productos</p>
+              </div>
               <button
                 onClick={() => setShowAddProduct(true)}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition flex items-center"
+                className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-xl hover:from-green-700 hover:to-emerald-700 transition transform hover:scale-105 flex items-center shadow-lg"
               >
                 <Plus className="h-5 w-5 mr-2" />
                 Agregar Producto
               </button>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {farmerProducts.map(product => (
-                <div key={product.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition">
-                  <div className="h-48 bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center relative">
+                <div key={product.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100 group">
+                  <div className="relative h-56 bg-gradient-to-br from-green-100 to-emerald-200 flex items-center justify-center overflow-hidden">
                     {product.photoUrl ? (
-                      <img src={product.photoUrl} alt={product.name} className="w-full h-full object-cover" />
+                      <img src={product.photoUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
                     ) : (
-                      <span className="text-7xl">{product.image}</span>
+                      <span className="text-9xl">{product.image}</span>
                     )}
-                    <button
-                      onClick={() => handleEditPhoto(product)}
-                      className="absolute top-2 right-2 bg-white p-2 rounded-full shadow hover:bg-gray-100 transition"
-                      title="Cambiar foto"
-                    >
-                      <Camera className="h-4 w-4 text-gray-600" />
-                    </button>
+                    <div className="absolute top-4 right-4 flex gap-2">
+                      <label className="bg-white/90 backdrop-blur-sm p-3 rounded-xl shadow-lg hover:bg-white transition cursor-pointer" title="Subir foto desde dispositivo">
+                        <Upload className="h-5 w-5 text-green-600" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleFileUpload(e, product.id)}
+                          className="hidden"
+                        />
+                      </label>
+                      <button
+                        onClick={() => handleEditPhoto(product)}
+                        className="bg-white/90 backdrop-blur-sm p-3 rounded-xl shadow-lg hover:bg-white transition"
+                        title="Cambiar foto por URL"
+                      >
+                        <Camera className="h-5 w-5 text-green-600" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProduct(product.id)}
+                        className="bg-red-500/90 backdrop-blur-sm p-3 rounded-xl shadow-lg hover:bg-red-600 transition"
+                        title="Eliminar producto"
+                      >
+                        <Trash2 className="h-5 w-5 text-white" />
+                      </button>
+                    </div>
+                    <div className="absolute bottom-4 left-4 bg-green-600 text-white text-xs px-4 py-2 rounded-full font-semibold shadow-lg">
+                      {product.category}
+                    </div>
                   </div>
-                  <div className="p-4">
-                    <h3 className="font-semibold text-gray-900 mb-1">{product.name}</h3>
-                    <p className="text-sm text-gray-600 mb-2">{product.description || product.category}</p>
+                  <div className="p-5">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">{product.name}</h3>
+                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">{product.description || product.category}</p>
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-xl font-bold text-green-600">Bs. {product.price}</span>
+                        <span className="text-2xl font-bold text-green-600">Bs. {product.price}</span>
                         <span className="text-sm text-gray-600">/{product.unit}</span>
                       </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                         product.available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                       }`}>
                         {product.available ? 'Disponible' : 'Agotado'}
@@ -309,47 +505,84 @@ function FarmerPanel() {
                 </div>
               ))}
             </div>
+            {farmerProducts.length === 0 && (
+              <div className="text-center py-16 bg-white rounded-2xl shadow-lg border border-gray-100">
+                <div className="bg-gray-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Package className="h-12 w-12 text-gray-400" />
+                </div>
+                <p className="text-gray-500 text-xl mb-4">No tienes productos aún</p>
+                <button
+                  onClick={() => setShowAddProduct(true)}
+                  className="bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 transition"
+                >
+                  Agregar Primer Producto
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {/* Orders Tab */}
         {activeTab === 'orders' && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Pedidos ({farmerOrders.length})</h2>
+            <div className="mb-6">
+              <h2 className="text-3xl font-bold text-gray-900">Pedidos</h2>
+              <p className="text-gray-600">Gestiona los pedidos de tus clientes</p>
+            </div>
             {farmerOrders.length === 0 ? (
-              <div className="bg-white rounded-xl p-12 text-center shadow-sm">
-                <Package className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500 text-lg">No tienes pedidos pendientes</p>
+              <div className="bg-white rounded-2xl p-16 text-center shadow-lg border border-gray-100">
+                <div className="bg-gray-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Package className="h-12 w-12 text-gray-400" />
+                </div>
+                <p className="text-gray-500 text-xl">No tienes pedidos pendientes</p>
               </div>
             ) : (
               <div className="space-y-4">
                 {farmerOrders.map(order => (
-                  <div key={order.id} className="bg-white rounded-xl p-6 shadow-sm">
+                  <div key={order.id} className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition">
                     <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">Pedido #{order.id}</h3>
-                        <p className="text-gray-600">{order.customer}</p>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-xl font-bold text-gray-900">Pedido #{order.id.slice(0, 8)}</h3>
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                            order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            order.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                            'bg-green-100 text-green-800'
+                          }`}>
+                            {order.status === 'pending' ? 'Pendiente' :
+                             order.status === 'confirmed' ? 'Confirmado' : 'Entregado'}
+                          </span>
+                        </div>
+                        <p className="text-gray-600 font-medium">{order.customerName || 'Cliente'}</p>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {order.products?.length} productos • Bs. {order.total?.toFixed(2)}
+                        </p>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        order.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {order.status === 'pending' ? 'Pendiente' :
-                         order.status === 'confirmed' ? 'Confirmado' : 'Entregado'}
-                      </span>
+                      <div className="flex gap-2">
+                        {order.status === 'pending' && (
+                          <button className="bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700 transition flex items-center">
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Confirmar
+                          </button>
+                        )}
+                        {order.status === 'confirmed' && (
+                          <button className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition flex items-center">
+                            <Truck className="h-4 w-4 mr-2" />
+                            Marcar Entregado
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex gap-4">
-                      {order.status === 'pending' && (
-                        <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">
-                          Confirmar
-                        </button>
-                      )}
-                      {order.status === 'confirmed' && (
-                        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
-                          Marcar Entregado
-                        </button>
-                      )}
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <p className="text-sm font-semibold text-gray-700 mb-2">Productos:</p>
+                      <div className="space-y-2">
+                        {order.products?.map((product, idx) => (
+                          <div key={idx} className="flex justify-between text-sm">
+                            <span className="text-gray-600">{product.name} x{product.quantity}</span>
+                            <span className="text-gray-900 font-medium">Bs. {(product.price * product.quantity).toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ))}

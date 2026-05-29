@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import { User, Mail, Phone, MapPin, Calendar, ShoppingBag, ArrowLeft, Edit } from 'lucide-react'
-import { getOrders } from '../services/firestoreService'
+import { User, Mail, Phone, MapPin, Calendar, ShoppingBag, ArrowLeft, Edit, Shield } from 'lucide-react'
+import { getOrders, updateUserType } from '../services/firestoreService'
 
 function Profile() {
   const navigate = useNavigate()
@@ -29,6 +29,18 @@ function Profile() {
       console.error('Error al cargar pedidos:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleBecomeAdmin = async () => {
+    if (window.confirm('¿Estás seguro de convertirte en administrador?')) {
+      try {
+        await updateUserType(user.uid, 'admin')
+        alert('Ahora eres administrador. Por favor, recarga la página.')
+        window.location.reload()
+      } catch (error) {
+        alert('Error al convertirte en administrador: ' + error.message)
+      }
     }
   }
 
@@ -102,6 +114,19 @@ function Profile() {
             </div>
           </div>
         </div>
+
+        {user.userType !== 'admin' && (
+          <div className="bg-purple-50 border border-purple-200 rounded-xl p-6 mb-8">
+            <button
+              onClick={handleBecomeAdmin}
+              className="w-full bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition flex items-center justify-center"
+            >
+              <Shield className="h-5 w-5 mr-2" />
+              Convertirse en Administrador
+            </button>
+            <p className="text-xs text-purple-700 mt-2 text-center">Solo para desarrollo - haz clic para obtener acceso de admin</p>
+          </div>
+        )}
 
         {/* Orders Section */}
         <div className="bg-white rounded-xl shadow-sm p-6">

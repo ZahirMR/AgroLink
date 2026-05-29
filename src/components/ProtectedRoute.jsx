@@ -1,8 +1,12 @@
 import { useAuth } from '../context/AuthContext'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 
-function ProtectedRoute({ children, requireAdmin = false }) {
+function ProtectedRoute({ children, requireAdmin = false, requireFarmer = false, requireClient = false }) {
   const { user, loading } = useAuth()
+  const location = useLocation()
+
+  // Verificar si es una sesión de admin
+  const isAdminSession = localStorage.getItem('isAdminSession')
 
   if (loading) {
     return (
@@ -15,12 +19,35 @@ function ProtectedRoute({ children, requireAdmin = false }) {
     )
   }
 
+  // --- Rutas de admin ---
+  // Si estamos en una ruta /admin, solo permitir si hay sesión de admin activa
+  if (location.pathname.startsWith('/admin')) {
+    if (isAdminSession) return children
+    return <Navigate to="/admin-login" replace />
+  }
+
+  // --- Rutas de agricultor / cliente ---
+  // La sesión de admin NO bloquea al agricultor ni al cliente.
+  // Si el usuario tiene una sesión normal activa, dejarle pasar.
   if (!user) {
     return <Navigate to="/login" replace />
   }
 
-  // Verificar si es administrador (el email debe contener 'admin')
-  if (requireAdmin && !user.email.includes('admin')) {
+  // Si el usuario registrado en Firebase es admin, enviarlo al panel admin
+  if (user.userType === 'admin') {
+    return <Navigate to="/admin-login" replace />
+  }
+
+  // Verificar tipos de usuario requeridos
+  if (requireFarmer && user.userType !== 'farmer') {
+    return <Navigate to="/" replace />
+  }
+
+  if (requireClient && user.userType !== 'client') {
+    return <Navigate to="/" replace />
+  }
+
+  if (requireAdmin && user.userType !== 'admin') {
     return <Navigate to="/" replace />
   }
 

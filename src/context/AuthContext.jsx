@@ -5,19 +5,27 @@ import { doc, getDoc } from 'firebase/firestore'
 
 const AuthContext = createContext()
 
+const USER_SESSION_KEY = 'agrolink_user_session'
+
 export function useAuth() {
   return useContext(AuthContext)
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
+  // Inicializar desde localStorage para sobrevivir navegaciones a /admin
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem(USER_SESSION_KEY)
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
 
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (loading) {
-        console.warn('Firebase auth timeout - forcing render')
         setLoading(false)
       }
     }, 3000)
@@ -27,37 +35,58 @@ export function AuthProvider({ children }) {
       async (firebaseUser) => {
         if (firebaseUser) {
           try {
-            // Obtener datos adicionales del usuario desde Firestore
             const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid))
             if (userDoc.exists()) {
-              setUser({
-                ...firebaseUser,
-                userType: userDoc.data().userType || 'client',
-                name: userDoc.data().name || firebaseUser.email
-              })
+              const userData = userDoc.data()
+              const userType = userData.userType || 'client'
+              
+              // No registrar sesiones de admin en AuthContext
+              if (userType === 'admin') {
+                setLoading(false)
+                clearTimeout(timeout)
+                return
+              }
+
+              const userState = {
+                uid: firebaseUser.uid,
+                email: firebaseUser.email,
+                userType: userType,
+                name: userData.name || firebaseUser.email
+              }
+              setUser(userState)
+              localStorage.setItem(USER_SESSION_KEY, JSON.stringify(userState))
             } else {
-              // Si no existe en Firestore, usar el usuario de Firebase
-              setUser({
-                ...firebaseUser,
+              const userState = {
+                uid: firebaseUser.uid,
+                email: firebaseUser.email,
                 userType: 'client'
-              })
+              }
+              setUser(userState)
+              localStorage.setItem(USER_SESSION_KEY, JSON.stringify(userState))
             }
           } catch (error) {
-            console.error('Error al obtener datos del usuario:', error)
-            setUser({
-              ...firebaseUser,
+            const userState = {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
               userType: 'client'
-            })
+            }
+            setUser(userState)
+            localStorage.setItem(USER_SESSION_KEY, JSON.stringify(userState))
           }
         } else {
-          setUser(null)
+          // Solo limpiar si NO es porque el admin hizo signOut sin que el usuario hiciera logout
+          // Verificar si tenemos sesión de usuario guardada y si el usuario NO hizo logout explícito
+          const savedSession = localStorage.getItem(USER_SESSION_KEY)
+          const userDidLogout = localStorage.getItem('agrolink_user_logged_out')
+          
+          if (!savedSession || userDidLogout === 'true') {
+            // El usuario cerró sesión explícitamente o no había sesión
+            setUser(null)
+            localStorage.removeItem(USER_SESSION_KEY)
+            localStorage.removeItem('agrolink_user_logged_out')
+          }
+          // Si hay savedSession y no fue logout explícito, mantener el estado actual
         }
-        setLoading(false)
-        clearTimeout(timeout)
-      },
-      (error) => {
-        console.error('Firebase auth error:', error)
-        setError(error)
         setLoading(false)
         clearTimeout(timeout)
       }
@@ -70,19 +99,36 @@ export function AuthProvider({ children }) {
   }, [])
 
   const login = async (email, password) => {
-    return signInWithEmailAndPassword(auth, email, password)
+    // Limpiar flag de logout antes de iniciar sesión
+    localStorage.removeItem('agrolink_user_logged_out')
+    const result = await signInWithEmailAndPassword(auth, email, password)
+    
+    const userDoc = await getDoc(doc(db, 'users', result.user.uid))
+    if (userDoc.exists()) {
+      const userType = userDoc.data().userType || 'client'
+      localStorage.setItem('activeSessionType', userType)
+    }
+    
+    return result
   }
 
   const logout = async () => {
-    return signOut(auth)
+    // Marcar que el usuario cerró sesión explícitamente
+    localStorage.setItem('agrolink_user_logged_out', 'true')
+    // Limpiar sesión guardada
+    localStorage.removeItem(USER_SESSION_KEY)
+    localStorage.removeItem('activeSessionType')
+    localStorage.removeItem('isAdminSession')
+    localStorage.removeItem('adminEmail')
+    setUser(null)
+    await signOut(auth)
   }
 
   const value = {
     user,
     login,
     logout,
-    loading,
-    error
+    loading
   }
 
   return (
