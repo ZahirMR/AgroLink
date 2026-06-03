@@ -18,7 +18,7 @@ function Navbar() {
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-3 group">
               <div className="bg-white/20 backdrop-blur-sm p-2 rounded-xl group-hover:bg-white/30 transition">
-                <Leaf className="h-8 w-8 text-white" />
+                <img src="/logo.jpeg" alt="AgroLink" className="h-8 w-8 object-contain" />
               </div>
               <span className="text-2xl font-bold tracking-tight">AgroLink</span>
             </Link>
